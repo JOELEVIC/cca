@@ -92,7 +92,7 @@ export class TournamentService {
     }
 
     // Check if already participant
-    const existing = tournament.participants.find((p) => p.userId === data.userId);
+    const existing = tournament.participants.find((p: { userId: string }) => p.userId === data.userId);
     if (existing) {
       throw new ValidationError('User is already a participant');
     }
