@@ -50,10 +50,10 @@ if (config.isDevelopment) {
   global.prisma = prisma;
 }
 
-// Test connection on startup
+// Test connection on startup (skip exit on Vercel so handler can return 503)
 prisma.$connect().catch((err) => {
   console.error('Failed to connect to database:', err);
-  process.exit(1);
+  if (!process.env.VERCEL) process.exit(1);
 });
 
 // Graceful shutdown

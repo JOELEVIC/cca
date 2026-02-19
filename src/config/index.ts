@@ -26,6 +26,7 @@ const parseEnv = () => {
       (error as any).errors.forEach((err: any) => {
         console.error(`  - ${err.path.join('.')}: ${err.message}`);
       });
+      if (process.env.VERCEL) throw error;
       process.exit(1);
     }
     throw error;
