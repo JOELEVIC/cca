@@ -2,13 +2,11 @@
   "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm install --include=dev",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
-  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {
     "api/index.ts": {
-      "memory": 1024,
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "dist/**"
     }
   }
 }
