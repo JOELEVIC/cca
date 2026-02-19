@@ -384,7 +384,23 @@ SUPABASE_ANON_KEY=<production-supabase-key>
 CORS_ORIGIN=<production-frontend-url>
 ```
 
-### Deployment Platforms
+### Vercel (serverless)
+
+The API is configured for Vercel via `api/index.ts` and `vercel.json`. To avoid **500 FUNCTION_INVOCATION_FAILED**:
+
+1. **Set these environment variables** in the Vercel project (Settings → Environment Variables). All are required:
+   - `DATABASE_URL` – PostgreSQL URL (use Supabase pooler: port **6543** with `?pgbouncer=true`)
+   - `JWT_SECRET` – at least **32 characters**
+   - `SUPABASE_URL` – e.g. `https://your-project.supabase.co`
+   - `SUPABASE_ANON_KEY` – your Supabase anon key
+   - `CORS_ORIGIN` – frontend origin (e.g. your ccaui Vercel URL)
+   - `NODE_ENV` – set to `production`
+
+2. **Redeploy** after adding or changing env vars.
+
+3. If you see **503** with "Server configuration error", check the Vercel function logs; the app will log which env var failed validation.
+
+### Other deployment platforms
 
 Recommended platforms:
 - **Railway** - Easy deployment with PostgreSQL

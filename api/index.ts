@@ -4,12 +4,17 @@
  */
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { FastifyInstance } from 'fastify';
+import path from 'path';
+import { pathToFileURL } from 'url';
+import { z } from 'zod';
 
 let appPromise: Promise<FastifyInstance> | null = null;
 
 async function getApp(): Promise<FastifyInstance> {
   if (!appPromise) {
-    const { buildApp } = await import('../dist/app.js');
+    // Resolve dist from project root so it works on Vercel (cwd is project root)
+    const appPath = path.join(process.cwd(), 'dist', 'app.js');
+    const { buildApp } = await import(pathToFileURL(appPath).href);
     appPromise = buildApp();
   }
   return appPromise as Promise<FastifyInstance>;
@@ -39,6 +44,15 @@ export default async function handler(
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
     console.error('Serverless function error:', message, stack);
+
+    // Config validation (missing env) → 503 so logs show the real error
+    if (err instanceof z.ZodError) {
+      const details = err.issues.map((e: z.ZodIssue) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      console.error('Env validation failed:', details);
+      sendError(res, 503, 'Server configuration error. Check Vercel env vars: DATABASE_URL, JWT_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY.');
+      return;
+    }
+
     sendError(res, 500, process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message);
   }
 }
