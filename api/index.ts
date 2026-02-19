@@ -8,11 +8,11 @@ import type { FastifyInstance } from 'fastify';
 
 let appPromise: Promise<FastifyInstance> | null = null;
 
-function getApp(): Promise<FastifyInstance> {
+async function getApp(): Promise<FastifyInstance> {
   if (!appPromise) {
     appPromise = buildApp();
   }
-  return appPromise;
+  return appPromise as Promise<FastifyInstance>;
 }
 
 export default async function handler(

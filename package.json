@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate && tsc && tsc -p tsconfig.vercel.json --noEmit",
     "start": "node dist/server.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
