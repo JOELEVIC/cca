@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import { ApolloServer } from '@apollo/server';
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import fastifyApollo, { fastifyApolloDrainPlugin } from '@as-integrations/fastify';
 import { z } from 'zod';
 import { config } from './config/index.js';
@@ -70,11 +71,29 @@ export const buildApp = async (): Promise<FastifyInstance> => {
     };
   });
 
+  // Root: API info (avoids 404 when visiting deployment URL)
+  app.get('/', async (_, reply) => {
+    return reply.code(200).send({
+      name: 'Cameroon Chess Academy API',
+      graphql: '/graphql',
+      health: '/health',
+    });
+  });
+
+  // GET /graphql: simple message (Apollo landing page disabled)
+  app.get('/graphql', async (_, reply) => {
+    return reply.code(200).send({
+      message: 'Cameroon Chess Academy GraphQL API',
+      usage: 'Send POST requests with Content-Type: application/json and body: { "query": "..." }',
+    });
+  });
+
   // Initialize Apollo Server
   const apollo = new ApolloServer({
     typeDefs,
     resolvers,
     plugins: [
+      ApolloServerPluginLandingPageDisabled(),
       fastifyApolloDrainPlugin(app),
     ],
     formatError: (formattedError) => {
