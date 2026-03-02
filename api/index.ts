@@ -26,10 +26,27 @@ function sendError(res: ServerResponse, statusCode: number, body: string) {
   res.end(JSON.stringify({ error: body }));
 }
 
+function sendJson(res: ServerResponse, statusCode: number, body: object) {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(body));
+}
+
 export default async function handler(
   req: IncomingMessage,
   res: ServerResponse
 ): Promise<void> {
+  // Health check: respond without loading the app so it works even if DB/config fails
+  const pathname = req.url?.split('?')[0] ?? '';
+  if (pathname === '/health' && (req.method === 'GET' || req.method === 'HEAD')) {
+    sendJson(res, 200, {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'cca-api',
+    });
+    return;
+  }
+
   try {
     const app = await getApp();
     await app.ready();
