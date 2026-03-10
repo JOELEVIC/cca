@@ -79,15 +79,7 @@ export const buildApp = async (): Promise<FastifyInstance> => {
     });
   });
 
-  // GET /graphql: simple message (Apollo landing page disabled)
-  app.get('/graphql', async (_, reply) => {
-    return reply.code(200).send({
-      message: 'Cameroon Chess Academy GraphQL API',
-      usage: 'Send POST requests with Content-Type: application/json and body: { "query": "..." }',
-    });
-  });
-
-  // Initialize Apollo Server
+  // Initialize Apollo Server (registers GET and POST /graphql)
   const apollo = new ApolloServer({
     typeDefs,
     resolvers,
