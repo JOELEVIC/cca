@@ -2,7 +2,7 @@ import { WebSocket } from 'ws';
 import { FastifyRequest } from 'fastify';
 import { GameMessage, GameState } from '../game.types.js';
 import { GameService } from '../game.service.js';
-import { extractTokenFromHeader, verifyToken } from '../../../utils/jwt.js';
+import { extractTokenFromHeader, extractTokenFromQuery, verifyToken } from '../../../utils/jwt.js';
 import logger from '../../../utils/logger.js';
 import { PrismaClient } from '@prisma/client';
 
@@ -24,8 +24,10 @@ export const gameWebSocketHandler = (prisma: PrismaClient) => {
 
     try {
       // Authenticate WebSocket connection
+      // Browsers cannot set Authorization header on WebSocket upgrade; use query param as fallback
       const authHeader = request.headers.authorization;
-      const token = extractTokenFromHeader(authHeader);
+      const query = request.query as { token?: string } | undefined;
+      const token = extractTokenFromHeader(authHeader) ?? extractTokenFromQuery(query);
 
       if (!token) {
         ws.close(1008, 'Authentication required');

@@ -1,0 +1,19 @@
+# Render Blueprint for CCA API
+# Deploy: Connect repo in Render Dashboard > New > Blueprint
+# For monorepo: set Root Directory to "cca" in the service settings
+
+services:
+  - type: web
+    runtime: node
+    name: cca-api
+
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render sets PORT automatically. Add in Dashboard > Environment:
+      # DATABASE_URL, JWT_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, CORS_ORIGIN

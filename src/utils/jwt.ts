@@ -49,3 +49,11 @@ export const extractTokenFromHeader = (authHeader?: string): string | null => {
 
   return parts[1];
 };
+
+/**
+ * Extract token from query params (for WebSocket - browsers cannot set headers on WS upgrade)
+ */
+export const extractTokenFromQuery = (query?: { token?: string }): string | null => {
+  const token = query?.token;
+  return token && typeof token === 'string' ? token : null;
+};
