@@ -27,7 +27,7 @@ const parseEnv = () => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('❌ Invalid environment variables:');
-      const issues = (error as z.ZodError).issues ?? (error as z.ZodError).errors;
+      const issues = error.issues;
       if (Array.isArray(issues)) {
         issues.forEach((err) => {
           const path = err.path?.join?.('.') ?? '?';
