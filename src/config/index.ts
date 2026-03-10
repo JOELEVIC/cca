@@ -12,12 +12,12 @@ const defaultNodeEnv: 'development' | 'test' | 'production' =
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default(defaultNodeEnv),
   PORT: z.string().default('4000'), // Render sets PORT (default 10000)
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  DATABASE_URL: z.string().optional(), // Optional: cca is gameplay-only; ccanext owns persistence
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
-  SUPABASE_ANON_KEY: z.string().min(1, 'SUPABASE_ANON_KEY is required'),
-  CORS_ORIGIN: z.string().default('http://localhost:3000,https://blacksilvergroups.xyz,https://cca.blacksilvergroups.xyz,https://cameroonchessacademy.com,https://dchessacademy.com,https://www.cameroonchessacademy.com,https://www.dchessacademy.com'), // Production: set to frontend URL (e.g. https://blacksilvergroups.xyz)
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  CORS_ORIGIN: z.string().default('http://localhost:3000,https://blacksilvergroups.xyz,https://cca.blacksilvergroups.xyz,https://cameroonchessacademy.com,https://dchessacademy.com,https://www.cameroonchessacademy.com,https://www.dchessacademy.com'),
 });
 
 // Validate environment variables
@@ -53,17 +53,17 @@ export const config = {
   isTest: env.NODE_ENV === 'test',
   
   database: {
-    url: env.DATABASE_URL,
+    url: env.DATABASE_URL ?? '',
   },
-  
+
   jwt: {
     secret: env.JWT_SECRET,
     expiresIn: env.JWT_EXPIRES_IN,
   },
   
   supabase: {
-    url: env.SUPABASE_URL,
-    anonKey: env.SUPABASE_ANON_KEY,
+    url: env.SUPABASE_URL ?? '',
+    anonKey: env.SUPABASE_ANON_KEY ?? '',
   },
   
   cors: {

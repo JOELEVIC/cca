@@ -6,17 +6,15 @@ import websocket from '@fastify/websocket';
 import { ApolloServer } from '@apollo/server';
 import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import fastifyApollo, { fastifyApolloDrainPlugin } from '@as-integrations/fastify';
+import { makeHandler } from 'graphql-ws/use/@fastify/websocket';
 import { config } from './config/index.js';
-import { prisma } from './config/database.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
-import { typeDefs } from './graphql/schema.js';
-import { resolvers } from './graphql/resolvers/index.js';
-import { buildContext } from './graphql/context.js';
-import { gameWebSocketHandler } from './domains/game/websocket/game.handler.js';
+import { executableSchema } from './graphql/executable-schema.js';
+import { buildContext, buildContextForSubscription } from './graphql/context.js';
 
 /**
  * Build and configure Fastify application.
- * Entry point for Render: server.ts calls buildApp() and app.listen().
+ * Real-time gameplay only: GraphQL (queries/mutations) + subscriptions via graphql-ws on same path.
  */
 export const buildApp = async (): Promise<FastifyInstance> => {
   const app = Fastify({
@@ -41,27 +39,22 @@ export const buildApp = async (): Promise<FastifyInstance> => {
     bodyLimit: 1048576, // 1MB
   });
 
-  // Register CORS
   await app.register(cors, {
     origin: config.cors.origin,
     credentials: true,
   });
 
-  // Register Helmet for security headers
   await app.register(helmet, {
     contentSecurityPolicy: config.isDevelopment ? false : undefined,
   });
 
-  // Register rate limiting
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '15 minutes',
   });
 
-  // Register WebSocket support
   await app.register(websocket);
 
-  // Health check endpoint
   app.get('/health', async () => {
     return {
       status: 'ok',
@@ -70,25 +63,22 @@ export const buildApp = async (): Promise<FastifyInstance> => {
     };
   });
 
-  // Root: API info (avoids 404 when visiting deployment URL)
   app.get('/', async (_, reply) => {
     return reply.code(200).send({
-      name: 'Cameroon Chess Academy API',
+      name: 'Cameroon Chess Academy API (Game Play)',
       graphql: '/graphql',
+      subscriptions: 'wss://.../subscriptions (graphql-ws)',
       health: '/health',
     });
   });
 
-  // Initialize Apollo Server (registers GET and POST /graphql)
-  const apollo = new ApolloServer({
-    typeDefs,
-    resolvers,
+  const apollo = new ApolloServer<import('./graphql/context.js').GraphQLContextWithServices>({
+    schema: executableSchema,
     plugins: [
       ApolloServerPluginLandingPageDisabled(),
       fastifyApolloDrainPlugin(app),
     ],
     formatError: (formattedError) => {
-      // Don't leak internal server errors in production
       if (config.isProduction && formattedError.extensions?.code === 'INTERNAL_SERVER_ERROR') {
         return {
           message: 'An unexpected error occurred',
@@ -103,17 +93,23 @@ export const buildApp = async (): Promise<FastifyInstance> => {
 
   await apollo.start();
 
-  // Register Apollo Server with Fastify
   await app.register(fastifyApollo(apollo), {
-    context: buildContext as any,
+    context: buildContext,
   });
 
-  // WebSocket routes for live games
+  // GraphQL subscriptions (graphql-ws) on same path; upgrade requests hit this
   app.register(async (fastify) => {
-    fastify.get('/ws/game/:gameId', { websocket: true }, gameWebSocketHandler(prisma));
+    const wsHandler = makeHandler(
+      {
+        schema: executableSchema,
+        context: async (ctx) =>
+          buildContextForSubscription((ctx.connectionParams ?? {}) as Record<string, unknown>),
+      },
+      12_000,
+    );
+    fastify.get('/subscriptions', { websocket: true }, wsHandler);
   });
 
-  // Error handlers
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
 
