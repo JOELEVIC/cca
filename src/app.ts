@@ -11,7 +11,7 @@ import { config } from './config/index.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { executableSchema } from './graphql/executable-schema.js';
 import { buildContext, buildContextForSubscription } from './graphql/context.js';
-import { getBestMove, type Difficulty } from './services/stockfish.service.js';
+import { getBestMove, getEvaluation } from './services/stockfish.service.js';
 
 /**
  * Build and configure Fastify application.
@@ -75,20 +75,34 @@ export const buildApp = async (): Promise<FastifyInstance> => {
   });
 
   app.post<{
-    Body: { fen: string; difficulty?: Difficulty };
+    Body: { fen: string; elo?: number };
   }>('/api/stockfish/bestmove', async (request, reply) => {
-    const { fen, difficulty = 'medium' } = request.body ?? {};
+    const { fen, elo = 1600 } = request.body ?? {};
     if (!fen || typeof fen !== 'string') {
       return reply.code(400).send({ error: 'fen is required' });
     }
-    const validDifficulty = ['easy', 'medium', 'hard'].includes(difficulty)
-      ? (difficulty as Difficulty)
-      : 'medium';
+    const validElo = typeof elo === 'number' ? Math.max(230, Math.min(3500, elo)) : 1600;
     try {
-      const move = await getBestMove(fen, validDifficulty);
-      return reply.code(200).send({ move });
+      const move = await getBestMove(fen, validElo);
+      return reply.code(200).send({ move, elo: validElo });
     } catch (err) {
       request.log.error({ err }, 'Stockfish error');
+      return reply.code(500).send({ error: 'Engine failed' });
+    }
+  });
+
+  app.post<{
+    Body: { fen: string };
+  }>('/api/stockfish/evaluate', async (request, reply) => {
+    const { fen } = request.body ?? {};
+    if (!fen || typeof fen !== 'string') {
+      return reply.code(400).send({ error: 'fen is required' });
+    }
+    try {
+      const evaluation = await getEvaluation(fen);
+      return reply.code(200).send(evaluation);
+    } catch (err) {
+      request.log.error({ err }, 'Stockfish evaluate error');
       return reply.code(500).send({ error: 'Engine failed' });
     }
   });
