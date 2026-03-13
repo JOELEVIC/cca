@@ -67,7 +67,7 @@ export const config = {
   },
   
   cors: {
-    origin: env.CORS_ORIGIN,
+    origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
   },
 } as const;
 

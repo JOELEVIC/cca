@@ -11,6 +11,7 @@ import { config } from './config/index.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { executableSchema } from './graphql/executable-schema.js';
 import { buildContext, buildContextForSubscription } from './graphql/context.js';
+import { getBestMove, type Difficulty } from './services/stockfish.service.js';
 
 /**
  * Build and configure Fastify application.
@@ -69,7 +70,27 @@ export const buildApp = async (): Promise<FastifyInstance> => {
       graphql: '/graphql',
       subscriptions: 'wss://.../subscriptions (graphql-ws)',
       health: '/health',
+      stockfish: '/api/stockfish/bestmove',
     });
+  });
+
+  app.post<{
+    Body: { fen: string; difficulty?: Difficulty };
+  }>('/api/stockfish/bestmove', async (request, reply) => {
+    const { fen, difficulty = 'medium' } = request.body ?? {};
+    if (!fen || typeof fen !== 'string') {
+      return reply.code(400).send({ error: 'fen is required' });
+    }
+    const validDifficulty = ['easy', 'medium', 'hard'].includes(difficulty)
+      ? (difficulty as Difficulty)
+      : 'medium';
+    try {
+      const move = await getBestMove(fen, validDifficulty);
+      return reply.code(200).send({ move });
+    } catch (err) {
+      request.log.error({ err }, 'Stockfish error');
+      return reply.code(500).send({ error: 'Engine failed' });
+    }
   });
 
   const apollo = new ApolloServer<import('./graphql/context.js').GraphQLContextWithServices>({
