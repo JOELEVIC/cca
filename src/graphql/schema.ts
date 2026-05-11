@@ -99,10 +99,19 @@ export const typeDefs = `#graphql
     recommendation: HunterRecommendation!
   }
 
+  type EngineEvaluation {
+    cp: Int
+    mate: Int
+  }
+
   type Query {
     gameSession(gameId: ID!): GameSession
     "Compute a Hunter Profile from the player's recent Chess.com games. Cached 5 min server-side."
     hunterProfile(chesscomUsername: String!, sampleSize: Int): HunterProfile!
+    "Server-side Stockfish best move — fallback when the browser WASM engine is unavailable."
+    engineBestMove(fen: String!, elo: Int): String
+    "Server-side Stockfish evaluation."
+    engineEvaluation(fen: String!): EngineEvaluation
   }
 
   type Mutation {

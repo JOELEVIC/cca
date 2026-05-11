@@ -1,6 +1,7 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { gameResolvers } from './game.resolvers.js';
 import { hunterResolvers } from './hunter.resolvers.js';
+import { engineResolvers } from './engine.resolvers.js';
 
 const dateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
@@ -28,6 +29,7 @@ export const resolvers = {
   Query: {
     ...gameResolvers.Query,
     ...hunterResolvers.Query,
+    ...engineResolvers.Query,
   },
   Mutation: gameResolvers.Mutation,
   Subscription: gameResolvers.Subscription,
