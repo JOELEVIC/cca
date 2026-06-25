@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { optionalAuthenticate } from '../middleware/auth.middleware.js';
 import { verifyToken } from '../utils/jwt.js';
+import { validateViaMainApi } from '../utils/remoteAuth.js';
 import { gameSessionService } from './pubsub.js';
 import { AuthContext } from '../types/index.js';
 
@@ -38,7 +39,9 @@ export const buildContextForSubscription = async (connectionParams: Record<strin
       const payload = verifyToken(token);
       user = { userId: payload.userId, role: payload.role };
     } catch {
-      user = undefined;
+      // Local verification failed — fall back to the main API (handles a
+      // JWT_SECRET drift between this service and the token issuer).
+      user = (await validateViaMainApi(token)) ?? undefined;
     }
   }
   return {

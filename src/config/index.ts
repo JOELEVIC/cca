@@ -15,6 +15,9 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional(), // Optional: cca is gameplay-only; ccanext owns persistence
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
+  // Main API (ccanext) — used to validate bearer tokens when local JWT
+  // verification fails (e.g. a JWT_SECRET drift between the two deployments).
+  MAIN_API_URL: z.string().url().default('https://blacksilvergroups.xyz/api/graphql'),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   CORS_ORIGIN: z.string().default('http://localhost:3000,https://blacksilvergroups.xyz,https://cca.blacksilvergroups.xyz,https://cameroonchessacademy.com,https://dchessacademy.com,https://www.cameroonchessacademy.com,https://www.dchessacademy.com'),
@@ -69,6 +72,8 @@ export const config = {
   cors: {
     origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
   },
+
+  mainApiUrl: env.MAIN_API_URL,
 } as const;
 
 export type Config = typeof config;
