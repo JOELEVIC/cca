@@ -7,6 +7,8 @@ import { AuthContext } from '../types/index.js';
 
 export interface GraphQLContextWithServices {
   user?: AuthContext;
+  /** Raw bearer token for the request, when present — captured so cca can write results back to the main API as this player. */
+  token?: string;
   gameSessionService: typeof gameSessionService;
   request?: FastifyRequest;
   reply?: FastifyReply;
@@ -18,8 +20,12 @@ export const buildContext = async (
 ): Promise<GraphQLContextWithServices> => {
   await optionalAuthenticate(request);
   const user = (request as any).user;
+  const authHeader = request.headers.authorization;
+  const token =
+    typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : undefined;
   return {
     user,
+    token,
     gameSessionService,
     request,
     reply,
@@ -46,6 +52,7 @@ export const buildContextForSubscription = async (connectionParams: Record<strin
   }
   return {
     user,
+    token: token ?? undefined,
     gameSessionService,
   };
 };

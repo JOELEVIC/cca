@@ -4,10 +4,17 @@ import { GameSessionService } from '../../domains/game/game-session.service.js';
 import type { GameUpdatePayload } from '../../domains/game/game-session.types.js';
 import { pubsub } from '../pubsub.js';
 
+function requireUser(context: GraphQLContextWithServices) {
+  if (!context.user) {
+    throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+  }
+  return context.user;
+}
+
 export const gameResolvers = {
   Query: {
     gameSession: async (_: unknown, { gameId }: { gameId: string }, context: GraphQLContextWithServices) => {
-      return context.gameSessionService.getSession(gameId);
+      return context.gameSessionService.getPublicSession(gameId);
     },
   },
 
@@ -17,10 +24,9 @@ export const gameResolvers = {
       { gameId, whiteId, blackId, timeControl }: { gameId: string; whiteId: string; blackId: string; timeControl: string },
       context: GraphQLContextWithServices,
     ) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      }
-      return context.gameSessionService.startSession(gameId, whiteId, blackId, timeControl);
+      const user = requireUser(context);
+      context.gameSessionService.startSession(gameId, whiteId, blackId, timeControl, user.userId, context.token);
+      return context.gameSessionService.getPublicSession(gameId);
     },
 
     makeMove: async (
@@ -28,38 +34,42 @@ export const gameResolvers = {
       { gameId, move }: { gameId: string; move: string },
       context: GraphQLContextWithServices,
     ) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      }
-      return context.gameSessionService.makeMove(gameId, context.user.userId, move);
+      const user = requireUser(context);
+      return context.gameSessionService.makeMove(gameId, user.userId, move, context.token);
     },
 
     resignGame: async (_: unknown, { gameId }: { gameId: string }, context: GraphQLContextWithServices) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      }
-      return context.gameSessionService.resignGame(gameId, context.user.userId);
+      const user = requireUser(context);
+      return context.gameSessionService.resignGame(gameId, user.userId, context.token);
+    },
+
+    abortGame: async (_: unknown, { gameId }: { gameId: string }, context: GraphQLContextWithServices) => {
+      const user = requireUser(context);
+      return context.gameSessionService.abortGame(gameId, user.userId, context.token);
     },
 
     offerDraw: async (_: unknown, { gameId }: { gameId: string }, context: GraphQLContextWithServices) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      }
-      return context.gameSessionService.offerDraw(gameId, context.user.userId);
+      const user = requireUser(context);
+      return context.gameSessionService.offerDraw(gameId, user.userId, context.token);
     },
 
     acceptDraw: async (_: unknown, { gameId }: { gameId: string }, context: GraphQLContextWithServices) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      }
-      return context.gameSessionService.acceptDraw(gameId, context.user.userId);
+      const user = requireUser(context);
+      return context.gameSessionService.acceptDraw(gameId, user.userId, context.token);
     },
 
     rejectDraw: async (_: unknown, { gameId }: { gameId: string }, context: GraphQLContextWithServices) => {
-      if (!context.user) {
-        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      }
-      return context.gameSessionService.rejectDraw(gameId, context.user.userId);
+      const user = requireUser(context);
+      return context.gameSessionService.rejectDraw(gameId, user.userId, context.token);
+    },
+
+    sendChatMessage: async (
+      _: unknown,
+      { gameId, text }: { gameId: string; text: string },
+      context: GraphQLContextWithServices,
+    ) => {
+      const user = requireUser(context);
+      return context.gameSessionService.sendChatMessage(gameId, user.userId, text);
     },
   },
 
@@ -70,11 +80,12 @@ export const gameResolvers = {
         { gameId }: { gameId: string },
         context: GraphQLContextWithServices,
       ) => {
-        if (!context.user) {
-          throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-        }
+        const user = requireUser(context);
         const topic = GameSessionService.topicForGame(gameId);
-        const session = context.gameSessionService.getSession(gameId);
+        const service = context.gameSessionService;
+
+        // Send the current state immediately so a (re)joining client/spectator is in sync.
+        const session = service.getPublicSession(gameId);
         if (session) {
           const payload = {
             gameId: session.gameId,
@@ -83,10 +94,24 @@ export const gameResolvers = {
             status: session.status,
             result: session.result ?? undefined,
             drawOfferBy: session.drawOfferBy ?? undefined,
+            whiteMs: session.whiteMs,
+            blackMs: session.blackMs,
+            serverTime: session.serverTime,
           };
           setImmediate(() => pubsub.publish(topic, { gameUpdated: payload }));
         }
-        return pubsub.asyncIterableIterator<{ gameUpdated: GameUpdatePayload }>(topic);
+
+        // Track presence so a rated game can be awarded if a player leaves and doesn't return.
+        service.registerPresence(gameId, user.userId);
+        const iterator = pubsub.asyncIterableIterator<{ gameUpdated: GameUpdatePayload }>(topic);
+        const originalReturn = iterator.return?.bind(iterator);
+        iterator.return = async () => {
+          service.unregisterPresence(gameId, user.userId);
+          return originalReturn
+            ? originalReturn()
+            : ({ value: undefined, done: true } as IteratorResult<{ gameUpdated: GameUpdatePayload }>);
+        };
+        return iterator;
       },
     },
   },

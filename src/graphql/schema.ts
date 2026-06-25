@@ -22,6 +22,7 @@ export const typeDefs = `#graphql
     DRAW_OFFER
     DRAW_ACCEPTED
     DRAW_REJECTED
+    CHAT
   }
 
   type GameSession {
@@ -33,6 +34,12 @@ export const typeDefs = `#graphql
     result: GameResult
     timeControl: String!
     drawOfferBy: ID
+    "White's remaining time in milliseconds (anchored at serverTime)."
+    whiteMs: Int
+    "Black's remaining time in milliseconds (anchored at serverTime)."
+    blackMs: Int
+    "Epoch ms the clock values were anchored at; clients extrapolate the running side."
+    serverTime: Float
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -46,6 +53,16 @@ export const typeDefs = `#graphql
     drawOfferBy: ID
     move: String
     reason: String
+    "White's remaining time in milliseconds (anchored at serverTime)."
+    whiteMs: Int
+    "Black's remaining time in milliseconds (anchored at serverTime)."
+    blackMs: Int
+    "Epoch ms the clock values were anchored at; clients extrapolate the running side."
+    serverTime: Float
+    "CHAT event: the sender's userId."
+    chatUserId: ID
+    "CHAT event: the message text."
+    chatText: String
   }
 
   # ── Road to Master · Hunter Profile (data bridge from Chess.com) ──
@@ -118,9 +135,13 @@ export const typeDefs = `#graphql
     startGameSession(gameId: ID!, whiteId: ID!, blackId: ID!, timeControl: String!): GameSession!
     makeMove(gameId: ID!, move: String!): GameSession!
     resignGame(gameId: ID!): GameSession!
+    "Void a game that hasn't really started (no rating change). Valid only before both players have moved."
+    abortGame(gameId: ID!): GameSession!
     offerDraw(gameId: ID!): GameSession!
     acceptDraw(gameId: ID!): GameSession!
     rejectDraw(gameId: ID!): GameSession!
+    "Send an in-game chat message (players and spectators). Delivered via the gameUpdated subscription."
+    sendChatMessage(gameId: ID!, text: String!): Boolean!
   }
 
   type Subscription {
