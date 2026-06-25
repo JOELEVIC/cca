@@ -272,12 +272,13 @@ export class GameSessionService {
       this.presence.set(gameId, set);
     }
     set.add(userId);
-    // They're back — cancel any pending abandonment for them.
+    // They're back — cancel any pending abandonment for them and tell the room.
     const key = `${gameId}:${userId}`;
     const t = this.abandonTimers.get(key);
     if (t) {
       clearTimeout(t);
       this.abandonTimers.delete(key);
+      this.publish(gameId, 'OPPONENT_RETURNED', { awayUserId: userId });
     }
     // Once both players are in the room, start the opening auto-abort countdown.
     this.maybeArmOpeningAbort(gameId);
@@ -293,6 +294,7 @@ export class GameSessionService {
     const present = this.presence.get(gameId);
     if (!present || !present.has(session.whiteId) || !present.has(session.blackId)) return;
     this.scheduleAbort(gameId);
+    this.publish(gameId, 'ABORT_ARMED', { deadline: Date.now() + ABORT_MS });
   }
 
   unregisterPresence(gameId: string, userId: string): void {
@@ -308,6 +310,8 @@ export class GameSessionService {
     if (this.abandonTimers.has(key)) return;
     const timer = setTimeout(() => this.onAbandon(gameId, userId), ABANDON_GRACE_MS);
     this.abandonTimers.set(key, timer);
+    // Tell the present player their opponent left and is on a forfeit countdown.
+    this.publish(gameId, 'OPPONENT_LEFT', { awayUserId: userId, deadline: Date.now() + ABANDON_GRACE_MS });
   }
 
   private onAbandon(gameId: string, userId: string): void {

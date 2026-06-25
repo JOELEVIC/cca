@@ -23,6 +23,9 @@ export const typeDefs = `#graphql
     DRAW_ACCEPTED
     DRAW_REJECTED
     CHAT
+    OPPONENT_LEFT
+    OPPONENT_RETURNED
+    ABORT_ARMED
   }
 
   type GameSession {
@@ -63,6 +66,10 @@ export const typeDefs = `#graphql
     chatUserId: ID
     "CHAT event: the message text."
     chatText: String
+    "OPPONENT_LEFT / OPPONENT_RETURNED: the player who left."
+    awayUserId: ID
+    "OPPONENT_LEFT / ABORT_ARMED: epoch ms when the forfeit/abort fires."
+    deadline: Float
   }
 
   # ── Road to Master · Hunter Profile (data bridge from Chess.com) ──

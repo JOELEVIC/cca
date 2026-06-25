@@ -49,7 +49,10 @@ export type GameUpdateEvent =
   | 'DRAW_OFFER'
   | 'DRAW_ACCEPTED'
   | 'DRAW_REJECTED'
-  | 'CHAT';
+  | 'CHAT'
+  | 'OPPONENT_LEFT'
+  | 'OPPONENT_RETURNED'
+  | 'ABORT_ARMED';
 
 export interface GameUpdatePayload {
   gameId: string;
@@ -67,4 +70,7 @@ export interface GameUpdatePayload {
   // ── Chat ──
   chatUserId?: string;
   chatText?: string;
+  // ── Presence countdowns (OPPONENT_LEFT / OPPONENT_RETURNED / ABORT_ARMED) ──
+  awayUserId?: string; // the player who left (OPPONENT_LEFT / OPPONENT_RETURNED)
+  deadline?: number; // epoch ms when the pending action (forfeit / abort) fires
 }
