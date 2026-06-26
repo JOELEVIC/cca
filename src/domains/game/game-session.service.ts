@@ -25,7 +25,12 @@ const GAME_UPDATED_TOPIC = 'GAME_UPDATED';
 const ABORT_MS = 30_000;
 // Once a game is rated (both moved), if a player disconnects we give them this
 // long to come back before awarding the win to the present opponent.
-const ABANDON_GRACE_MS = 60_000;
+const ABANDON_GRACE_MS = 120_000;
+// Brief drops are normal on flaky/mobile networks (graphql-ws reconnects in a
+// few seconds). Don't alarm the room or start the visible forfeit countdown
+// until a player has actually been gone this long — avoids constant
+// "opponent left / returned" churn and premature forfeits for slow connections.
+const LEFT_NOTICE_DELAY_MS = 12_000;
 const MAX_CHAT_LEN = 500;
 
 /** The public (GraphQL-facing) projection of a session, with live clock values. */
@@ -53,6 +58,10 @@ export class GameSessionService {
   private flagTimers = new Map<string, NodeJS.Timeout>();
   // `${gameId}:${userId}` → timer that awards the win if an absent player doesn't return.
   private abandonTimers = new Map<string, NodeJS.Timeout>();
+  // `${gameId}:${userId}` → timer that announces OPPONENT_LEFT only after a sustained absence.
+  private leftNoticeTimers = new Map<string, NodeJS.Timeout>();
+  // `${gameId}:${userId}` we've actually announced as gone (so we only say "returned" for a real absence).
+  private leftAnnounced = new Set<string>();
   // gameId → set of userIds currently subscribed (present) — players and spectators.
   private presence = new Map<string, Set<string>>();
 
@@ -272,13 +281,23 @@ export class GameSessionService {
       this.presence.set(gameId, set);
     }
     set.add(userId);
-    // They're back — cancel any pending abandonment for them and tell the room.
     const key = `${gameId}:${userId}`;
+    // A pending soft-notice means this was just a brief blip — cancel it silently.
+    const notice = this.leftNoticeTimers.get(key);
+    if (notice) {
+      clearTimeout(notice);
+      this.leftNoticeTimers.delete(key);
+    }
+    // They're back — cancel the forfeit timer; only tell the room "returned" if we
+    // actually announced them gone (otherwise nobody ever saw them leave).
     const t = this.abandonTimers.get(key);
     if (t) {
       clearTimeout(t);
       this.abandonTimers.delete(key);
-      this.publish(gameId, 'OPPONENT_RETURNED', { awayUserId: userId });
+      if (this.leftAnnounced.has(key)) {
+        this.leftAnnounced.delete(key);
+        this.publish(gameId, 'OPPONENT_RETURNED', { awayUserId: userId });
+      }
     }
     // Once both players are in the room, start the opening auto-abort countdown.
     this.maybeArmOpeningAbort(gameId);
@@ -308,15 +327,26 @@ export class GameSessionService {
     if (session.status !== GAME_STATUS.ACTIVE || plyCount(session.moves) < 2) return;
     const key = `${gameId}:${userId}`;
     if (this.abandonTimers.has(key)) return;
-    const timer = setTimeout(() => this.onAbandon(gameId, userId), ABANDON_GRACE_MS);
-    this.abandonTimers.set(key, timer);
-    // Tell the present player their opponent left and is on a forfeit countdown.
-    this.publish(gameId, 'OPPONENT_LEFT', { awayUserId: userId, deadline: Date.now() + ABANDON_GRACE_MS });
+    const deadline = Date.now() + ABANDON_GRACE_MS;
+    // Hard forfeit timer — only awards the win after a *sustained* absence.
+    this.abandonTimers.set(key, setTimeout(() => this.onAbandon(gameId, userId), ABANDON_GRACE_MS));
+    // Soft notice — wait out brief reconnects before showing the room a countdown.
+    this.leftNoticeTimers.set(
+      key,
+      setTimeout(() => {
+        this.leftNoticeTimers.delete(key);
+        const present = this.presence.get(gameId);
+        if (present && present.has(userId)) return; // already back — never alarm
+        this.leftAnnounced.add(key);
+        this.publish(gameId, 'OPPONENT_LEFT', { awayUserId: userId, deadline });
+      }, LEFT_NOTICE_DELAY_MS),
+    );
   }
 
   private onAbandon(gameId: string, userId: string): void {
     const key = `${gameId}:${userId}`;
     this.abandonTimers.delete(key);
+    this.leftAnnounced.delete(key);
     const session = this.sessions.get(gameId);
     if (!session || session.status !== GAME_STATUS.ACTIVE || plyCount(session.moves) < 2) return;
     // Still gone? Award the win to the opponent.
