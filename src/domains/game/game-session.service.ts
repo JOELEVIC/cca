@@ -312,6 +312,19 @@ export class GameSessionService {
     if (this.abortTimers.has(gameId)) return;
     const present = this.presence.get(gameId);
     if (!present || !present.has(session.whiteId) || !present.has(session.blackId)) return;
+
+    // Both players are in → the match begins. Start White's clock immediately
+    // (and flip the game ACTIVE) so White can see it's their move — players kept
+    // forgetting to make the first move because nothing looked "live". GAME_STATE
+    // makes the clients apply the running clock; the opening still aborts (no
+    // rating) if no move arrives in time.
+    if (session.status === GAME_STATUS.PENDING && session.turnStartedAt == null) {
+      session.status = GAME_STATUS.ACTIVE;
+      session.turnStartedAt = Date.now();
+      session.updatedAt = new Date();
+      this.publish(gameId, 'GAME_STATE', {});
+    }
+
     this.scheduleAbort(gameId);
     this.publish(gameId, 'ABORT_ARMED', { deadline: Date.now() + ABORT_MS });
   }
