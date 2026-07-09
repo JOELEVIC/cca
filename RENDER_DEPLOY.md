@@ -20,7 +20,7 @@ Set these in Render Dashboard → Environment:
 | `JWT_SECRET` | Yes | Min 32 characters |
 | `SUPABASE_URL` | Yes | e.g. `https://xxx.supabase.co` |
 | `SUPABASE_ANON_KEY` | Yes | From Supabase project settings |
-| `CORS_ORIGIN` | Yes | Frontend URL, e.g. `https://blacksilvergroups.xyz` |
+| `CORS_ORIGIN` | Yes | Comma-separated frontend origins, e.g. `https://cm.dchessacademy.com` |
 | `JWT_EXPIRES_IN` | No | Default `7d` |
 | `PORT` | No | Render sets automatically |
 

@@ -17,10 +17,10 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   // Main API (ccanext) — used to validate bearer tokens when local JWT
   // verification fails (e.g. a JWT_SECRET drift between the two deployments).
-  MAIN_API_URL: z.string().url().default('https://blacksilvergroups.xyz/api/graphql'),
+  MAIN_API_URL: z.string().url().default('https://api.dchessacademy.com/api/graphql'),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
-  CORS_ORIGIN: z.string().default('http://localhost:3000,https://blacksilvergroups.xyz,https://cca.blacksilvergroups.xyz,https://cameroonchessacademy.com,https://dchessacademy.com,https://www.cameroonchessacademy.com,https://www.dchessacademy.com'),
+  CORS_ORIGIN: z.string().default('http://localhost:3000,https://ccaui.vercel.app,https://cameroonchessacademy.com,https://dchessacademy.com,https://cm.dchessacademy.com'),
 });
 
 // Validate environment variables
