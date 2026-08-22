@@ -6,7 +6,10 @@ import {
   GameUpdateEvent,
   GAME_STATUS,
   GAME_RESULT,
+  VALIDATION_STATE,
+  toValidationState,
 } from './game-session.types.js';
+import type { ValidationState } from './game-session.types.js';
 import {
   parseTimeControl,
   plyCount,
@@ -82,10 +85,16 @@ export class GameSessionService {
     timeControl: string,
     callerId?: string,
     token?: string,
+    validationState?: ValidationState | null,
   ): GameSessionState {
     const existing = this.sessions.get(gameId);
     if (existing) {
       this.captureToken(existing, callerId, token);
+      // Either player may start the session. Let a later caller flag the game as
+      // needing validation, but never let one clear a flag already set — the
+      // guard may tighten, never loosen.
+      const incoming = toValidationState(validationState);
+      if (incoming !== VALIDATION_STATE.NOT_REQUIRED) existing.validationState = incoming;
       return existing;
     }
     const { initialMs, incrementMs } = parseTimeControl(timeControl);
@@ -100,6 +109,7 @@ export class GameSessionService {
       moves: '',
       status: GAME_STATUS.PENDING,
       timeControl,
+      validationState: toValidationState(validationState),
       initialMs,
       incrementMs,
       whiteMs: initialMs,
@@ -460,6 +470,14 @@ export class GameSessionService {
 
   private persistResult(session: GameSessionState, result: GameResult | null, reason: string): void {
     if (session.resultRecorded) return;
+    // BUILD_PLAN §4.4 — the double-rating guard. Writing a decisive result back
+    // to the main API *is* this server's rating write: `recordGameResult`
+    // applies the Glicko-2 change. A game that belongs to a fixture board
+    // (validationState != NOT_REQUIRED) is rated once, later, at arbiter
+    // validation, so the write-back is skipped here. An aborted game (result
+    // null) is voided by the main API without touching any rating, so it still
+    // goes through and the row is correctly marked ABANDONED.
+    if (result !== null && session.validationState !== VALIDATION_STATE.NOT_REQUIRED) return;
     const token = session.tokens.white ?? session.tokens.black;
     if (!token) return; // no credential captured yet — best-effort; outcome still broadcast live
     session.resultRecorded = true;

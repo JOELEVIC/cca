@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql';
 import { GraphQLContextWithServices } from '../context.js';
 import { GameSessionService } from '../../domains/game/game-session.service.js';
-import type { GameUpdatePayload } from '../../domains/game/game-session.types.js';
+import type { GameUpdatePayload, ValidationState } from '../../domains/game/game-session.types.js';
 import { pubsub } from '../pubsub.js';
 
 function requireUser(context: GraphQLContextWithServices) {
@@ -21,11 +21,25 @@ export const gameResolvers = {
   Mutation: {
     startGameSession: async (
       _: unknown,
-      { gameId, whiteId, blackId, timeControl }: { gameId: string; whiteId: string; blackId: string; timeControl: string },
+      { gameId, whiteId, blackId, timeControl, validationState }: {
+        gameId: string;
+        whiteId: string;
+        blackId: string;
+        timeControl: string;
+        validationState?: ValidationState | null;
+      },
       context: GraphQLContextWithServices,
     ) => {
       const user = requireUser(context);
-      context.gameSessionService.startSession(gameId, whiteId, blackId, timeControl, user.userId, context.token);
+      context.gameSessionService.startSession(
+        gameId,
+        whiteId,
+        blackId,
+        timeControl,
+        user.userId,
+        context.token,
+        validationState,
+      );
       return context.gameSessionService.getPublicSession(gameId);
     },
 

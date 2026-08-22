@@ -15,6 +15,14 @@ export const typeDefs = `#graphql
     STALEMATE
   }
 
+  "Mirrors ccanext's ValidationState. NOT_REQUIRED = an ordinary online game."
+  enum ValidationState {
+    NOT_REQUIRED
+    PENDING
+    VALIDATED
+    DISPUTED
+  }
+
   enum GameUpdateEvent {
     GAME_STATE
     MOVE
@@ -139,7 +147,8 @@ export const typeDefs = `#graphql
   }
 
   type Mutation {
-    startGameSession(gameId: ID!, whiteId: ID!, blackId: ID!, timeControl: String!): GameSession!
+    "Register a live session for a game that already exists on the main API. Pass validationState PENDING for a fixture board's game: it is rated at arbiter validation, so this server will not write its result back. Omitted / NOT_REQUIRED = an ordinary rated game."
+    startGameSession(gameId: ID!, whiteId: ID!, blackId: ID!, timeControl: String!, validationState: ValidationState): GameSession!
     makeMove(gameId: ID!, move: String!): GameSession!
     resignGame(gameId: ID!): GameSession!
     "Void a game that hasn't really started (no rating change). Valid only before both players have moved."
