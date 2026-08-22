@@ -470,14 +470,18 @@ export class GameSessionService {
 
   private persistResult(session: GameSessionState, result: GameResult | null, reason: string): void {
     if (session.resultRecorded) return;
-    // BUILD_PLAN §4.4 — the double-rating guard. Writing a decisive result back
-    // to the main API *is* this server's rating write: `recordGameResult`
-    // applies the Glicko-2 change. A game that belongs to a fixture board
-    // (validationState != NOT_REQUIRED) is rated once, later, at arbiter
-    // validation, so the write-back is skipped here. An aborted game (result
-    // null) is voided by the main API without touching any rating, so it still
-    // goes through and the row is correctly marked ABANDONED.
-    if (result !== null && session.validationState !== VALIDATION_STATE.NOT_REQUIRED) return;
+    // EVERY finished session is written back, fixture boards included. This POST
+    // persists the game RECORD — status, result and moves — which the main API
+    // needs whatever the game was; one ledger holds over-the-board and online
+    // play alike. It is not the rating write, and must not be used as a proxy
+    // for one: `recordGameResult` persists first and only then rates, so
+    // skipping the POST dropped the record along with the rating.
+    //
+    // BUILD_PLAN §4.4's double-rating guard therefore lives where the rating
+    // actually happens — in ccanext's `applyGlickoRatings`, which skips any game
+    // whose `validationState != NOT_REQUIRED` (a fixture board is rated once,
+    // later, at arbiter validation). The main API reads that state from its own
+    // row, which is the authority; this server does not gate on its copy.
     const token = session.tokens.white ?? session.tokens.black;
     if (!token) return; // no credential captured yet — best-effort; outcome still broadcast live
     session.resultRecorded = true;

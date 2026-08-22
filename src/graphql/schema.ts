@@ -147,7 +147,7 @@ export const typeDefs = `#graphql
   }
 
   type Mutation {
-    "Register a live session for a game that already exists on the main API. Pass validationState PENDING for a fixture board's game: it is rated at arbiter validation, so this server will not write its result back. Omitted / NOT_REQUIRED = an ordinary rated game."
+    "Register a live session for a game that already exists on the main API. Pass validationState PENDING for a fixture board's game: its result and moves are still recorded, but it is rated later, at arbiter validation, not at completion. Omitted / NOT_REQUIRED = an ordinary rated game."
     startGameSession(gameId: ID!, whiteId: ID!, blackId: ID!, timeControl: String!, validationState: ValidationState): GameSession!
     makeMove(gameId: ID!, move: String!): GameSession!
     resignGame(gameId: ID!): GameSession!

@@ -53,8 +53,12 @@ export interface GameSessionState {
   result?: GameResult | null;
   timeControl: string;
   drawOfferBy?: string | null; // userId who offered draw
-  // NOT_REQUIRED = rate this game here when it ends. Anything else = a fixture
-  // board's game, rated at arbiter validation instead (BUILD_PLAN §4.4).
+  // The state declared by whoever started the session, mirroring ccanext's
+  // column: NOT_REQUIRED = an ordinary online game; anything else = a fixture
+  // board's game, rated at arbiter validation (BUILD_PLAN §4.4). Rating is the
+  // main API's decision, taken against its own row when the result is written
+  // back — this server records the declared state as session context and does
+  // not gate the write-back on it.
   validationState: ValidationState;
   // ── Clocks (all milliseconds) ──
   initialMs: number; // base time per side
